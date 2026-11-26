@@ -971,6 +971,9 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
 .fc-panel p { margin: 0; font-size: .92rem; color: var(--muted); }
 .fc-panel .row2 { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
 .fc-panel .row2 .btn { flex: 1 1 140px; padding: 12px 14px; }
+.move-modal { position: fixed; inset: 0; background: rgba(11,18,32,.45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 16px; }
+.move-card { max-width: 440px; width: 100%; background: #fff; }
+.move-ta { width: 100%; box-sizing: border-box; border: 2px solid #B6FF00; border-radius: 12px; padding: 10px; font: inherit; font-size: .85rem; resize: vertical; word-break: break-all; }
 .fc-how { background: #F3FFE0; border: 2px solid #B6FF00; border-radius: 16px; padding: 10px 14px; font-size: .9rem; }
 .fc-how ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .fc-setup { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; background: var(--soft); border-radius: 16px; padding: 8px 12px; }
@@ -1145,6 +1148,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
           <label class="check" for="ageOk"><input type="checkbox" id="ageOk"> <span>I am 13 or older.</span></label>
           <p class="note" style="margin:0">Glow Up is for teens 13 and up. Tell a parent or guardian you are using it.</p>
           <button class="btn block" id="startQuiz" disabled>Start my 2-minute quiz</button>
+          <button class="linkish" id="moveHome" type="button">Already use Glow Up on another device? Bring your progress</button>
         </div>
         <div id="homeGo" class="hh-btns" hidden>
           <button class="btn" id="goToday">Start today's mission</button>
@@ -1519,6 +1523,15 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
       <div class="eyebrow">Coming soon</div>
       <p style="margin:0">Plate Check (snap your meal for Glow Score points) and a Friend Squad with shared streaks.</p>
     </div>
+    <div class="card stack" id="moveCard">
+      <div class="eyebrow">Phone + laptop</div>
+      <h3>Use Glow Up on your other device</h3>
+      <p class="note" style="margin:0">Your progress is saved on this device. Send yourself a magic link to copy it to your phone or laptop.</p>
+      <div class="qnav"><button class="btn" id="moveSend" type="button">Send to my other device</button><button class="btn ghost" id="moveCopy" type="button">Copy link</button></div>
+      <textarea id="moveOut" class="move-ta" rows="3" readonly hidden aria-label="Your magic link"></textarea>
+      <button class="linkish" id="movePasteBtn" type="button">Got a magic link? Paste it here</button>
+      <p class="note" style="margin:0">Only send this link to yourself. It is a copy: after more workouts, send a new link to update your other device.</p>
+    </div>
     <div class="card stack">
       <div class="eyebrow">Start over</div>
       <p class="note" style="margin:0">Clears your answers and streak on this device only.</p>
@@ -1578,6 +1591,16 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
   </div>
 </div>
 
+<div class="move-modal" id="moveBox" hidden><div class="card stack move-card" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
+  <div class="eyebrow">Bring your progress</div>
+  <h3 id="moveTitle">Move your Glow Up to this device</h3>
+  <p class="note" id="moveInfo" style="margin:0"></p>
+  <div id="movePaste" class="stack"><p class="note" style="margin:0">On your other device, go to Progress, then "Use Glow Up on your other device", then Copy link. Paste it here.</p>
+    <textarea id="moveIn" class="move-ta" rows="3" placeholder="Paste your magic link here"></textarea>
+    <button class="btn" id="moveRead" type="button">Bring it in</button></div>
+  <button class="btn" id="moveYes" type="button" hidden>Yes, bring it in</button>
+  <button class="btn ghost" id="moveNo" type="button">Cancel</button>
+</div></div>
 <div class="toast" id="toast" hidden></div>
 <canvas id="confetti" hidden></canvas>
 
@@ -2753,6 +2776,67 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     S = { answers: null, days: {}, likes: {}, best: 0, ageOk: S.ageOk, hacks: { saved: {}, tried: {} }, lib: { done: {}, last: "" }, freezes: 1, frozen: {}, seenBadges: {}, lazy: 0, checkins: {}, reward: { best: 0, months: 0, last: "" } }; save(); libSel = null;
     $("resetConfirm").hidden = true; $("resetBtn").hidden = false; draft = {}; qi = 0; show("quiz");
   });
+
+
+  // ---------- Move progress to another device (2026-11-26) ----------
+  var MOVE_TAG = "move=", MOVE_SITE = "https://yvonnechen16412-cmyk.github.io/glowup/", MOVE_PENDING = null;
+  function b64u(bytes) { var t = ""; for (var i = 0; i < bytes.length; i += 8192) t += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(t).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function unb64u(t) { t = t.replace(/-/g, "+").replace(/_/g, "/"); while (t.length % 4) t += "="; var r = atob(t), a = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return a; }
+  function pipeBytes(bytes, ts) { return new Response(new Blob([bytes]).stream().pipeThrough(ts)).arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
+  function moveCode() {
+    var raw = new TextEncoder().encode(JSON.stringify(S));
+    if (window.CompressionStream) { try { return pipeBytes(raw, new CompressionStream("deflate-raw")).then(function (z) { return "z" + b64u(z); }, function () { return "p" + b64u(raw); }); } catch (e) {} }
+    return Promise.resolve("p" + b64u(raw));
+  }
+  function moveLink() {
+    var base = /github\.io$/.test(location.hostname) ? location.href.split("#")[0] : MOVE_SITE;
+    return moveCode().then(function (c) { return base + "#" + MOVE_TAG + c; });
+  }
+  function readMove(text) {
+    try {
+      var code = String(text || "").trim(), i = code.indexOf(MOVE_TAG);
+      if (i >= 0) code = code.slice(i + MOVE_TAG.length);
+      code = code.split(/[&\s]/)[0];
+      var kind = code.charAt(0), body = unb64u(code.slice(1));
+      var p = kind === "z" ? pipeBytes(body, new DecompressionStream("deflate-raw")) : kind === "p" ? Promise.resolve(body) : Promise.reject(new Error("bad"));
+      return p.then(function (b) { var d = JSON.parse(new TextDecoder().decode(b)); if (!d || typeof d !== "object" || !d.days) throw new Error("bad"); return d; });
+    } catch (e) { return Promise.reject(e); }
+  }
+  function moveOpen(d) {
+    MOVE_PENDING = d || null;
+    $("movePaste").hidden = !!d; $("moveYes").hidden = !d; $("moveIn").value = "";
+    if (d) {
+      var days = Object.keys(d.days || {}).filter(function (k) { var x = d.days[k]; return x && ((x.cards && x.cards.length) || x.mins); }).length;
+      $("moveTitle").textContent = "Bring in your progress?";
+      $("moveInfo").textContent = "Found your Glow Up with " + days + " workout day" + (days === 1 ? "" : "s") + (d.best ? " and a best streak of " + d.best : "") + ". This replaces what is on this device right now.";
+    } else { $("moveTitle").textContent = "Move your Glow Up to this device"; $("moveInfo").textContent = ""; }
+    $("moveBox").hidden = false;
+  }
+  function moveClose() { $("moveBox").hidden = true; MOVE_PENDING = null; }
+  function moveBad() { toast("That link did not work. Copy the whole link again."); }
+  function moveShowLink(link) { var o = $("moveOut"); o.value = link; o.hidden = false; o.focus(); o.select(); }
+  function moveCopyLink(link) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(link).then(function () { toast("Link copied! Send it to yourself, then open it on your other device."); }, function () { moveShowLink(link); toast("Copy this link and send it to yourself."); });
+    moveShowLink(link); toast("Copy this link and send it to yourself."); return Promise.resolve();
+  }
+  $("moveCopy").addEventListener("click", function () { moveLink().then(moveCopyLink); });
+  $("moveSend").addEventListener("click", function () {
+    moveLink().then(function (link) {
+      if (navigator.share) navigator.share({ title: "My Glow Up progress", text: "Open this on my other device to bring my Glow Up progress:", url: link }).catch(function (e) { if (!e || e.name !== "AbortError") moveCopyLink(link); });
+      else moveCopyLink(link);
+    });
+  });
+  $("movePasteBtn").addEventListener("click", function () { moveOpen(null); });
+  $("moveHome").addEventListener("click", function () { moveOpen(null); });
+  $("moveNo").addEventListener("click", moveClose);
+  $("moveRead").addEventListener("click", function () { readMove($("moveIn").value).then(moveOpen, moveBad); });
+  $("moveYes").addEventListener("click", function () {
+    if (!MOVE_PENDING) return;
+    try { localStorage.setItem(KEY, JSON.stringify(MOVE_PENDING)); } catch (e) {}
+    try { history.replaceState(null, "", location.href.split("#")[0]); } catch (e) { location.hash = ""; }
+    location.reload();
+  });
+  if (location.hash.indexOf(MOVE_TAG) >= 0) readMove(location.hash).then(moveOpen, moveBad);
 
   // ---------- food: menu hacks (Night 2) ----------
   // [id, category, from, to, why]
