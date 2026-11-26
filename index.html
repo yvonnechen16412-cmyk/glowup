@@ -1148,6 +1148,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
           <label class="check" for="ageOk"><input type="checkbox" id="ageOk"> <span>I am 13 or older.</span></label>
           <p class="note" style="margin:0">Glow Up is for teens 13 and up. Tell a parent or guardian you are using it.</p>
           <button class="btn block" id="startQuiz" disabled>Start my 2-minute quiz</button>
+          <button class="linkish" id="acctHome" type="button" hidden>Have an account? Sign in with Google</button>
           <button class="linkish" id="moveHome" type="button">Already use Glow Up on another device? Bring your progress</button>
         </div>
         <div id="homeGo" class="hh-btns" hidden>
@@ -1523,6 +1524,22 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
       <div class="eyebrow">Coming soon</div>
       <p style="margin:0">Plate Check (snap your meal for Glow Score points) and a Friend Squad with shared streaks.</p>
     </div>
+    <div class="card stack" id="acctCard">
+      <div class="eyebrow">Your account</div>
+      <div id="acctOut" class="stack">
+        <h3>Save your progress everywhere</h3>
+        <p class="note" style="margin:0">Sign in with Google and your streak, badges and plan follow you to your phone and laptop. We only save your Glow Up progress. Never your weight, height or photos.</p>
+        <button class="btn" id="acctIn" type="button">Sign in with Google</button>
+      </div>
+      <div id="acctOn" class="stack" hidden>
+        <h3 id="acctWho">Signed in</h3>
+        <p class="note" id="acctSync" style="margin:0">Your progress is saved to your account.</p>
+        <div class="qnav"><button class="btn ghost" id="acctOff" type="button">Sign out</button><button class="btn ghost" id="acctDel" type="button">Delete my account</button></div>
+        <div id="acctDelConfirm" class="stack" hidden><p class="note" style="margin:0">This deletes your saved progress from our server for good. Your progress stays on this device.</p><div class="qnav"><button class="btn pink" id="acctDelYes" type="button">Yes, delete it</button><button class="btn ghost" id="acctDelNo" type="button">Keep it</button></div></div>
+      </div>
+      <div id="acctNo" hidden><p class="note" style="margin:0">Accounts work on our website: <a href="https://yvonnechen16412-cmyk.github.io/glowup/" target="_blank" rel="noopener">yvonnechen16412-cmyk.github.io/glowup</a></p></div>
+      <a class="note" href="https://yvonnechen16412-cmyk.github.io/glowup/privacy.html" target="_blank" rel="noopener" id="acctPriv">Privacy: what we save and how to delete it</a>
+    </div>
     <div class="card stack" id="moveCard">
       <div class="eyebrow">Phone + laptop</div>
       <h3>Use Glow Up on your other device</h3>
@@ -1609,7 +1626,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
   "use strict";
   var KEY = "glowup.v1";
   function load() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() { S.updatedAt = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} cloudPush(); }
   var S = load() || {};
   S.answers = S.answers || null;
   S.days = S.days || {};        // "YYYY-MM-DD": { cards: [ids], mins: n, feel: "" }
@@ -2777,6 +2794,92 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     $("resetConfirm").hidden = true; $("resetBtn").hidden = false; draft = {}; qi = 0; show("quiz");
   });
 
+
+
+  // ---------- Accounts + cloud sync (Firebase, 2026-11-26) ----------
+  var FB_CONFIG = { apiKey: "AIzaSyD1bZclvYGZkW0YXo-QQ40rfUGbm2wwcRw", authDomain: "glowup-85018.firebaseapp.com", projectId: "glowup-85018", storageBucket: "glowup-85018.firebasestorage.app", messagingSenderId: "749823401637", appId: "1:749823401637:web:dba9d0a53dbedd4847374c" };
+  var FB_VER = "10.14.1", FB = { ready: false, user: null, db: null, auth: null, timer: 0, pulled: false };
+  var CLOUD_OK = /github\.io$/.test(location.hostname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  function fbScript(name) { return new Promise(function (res, rej) { var el = document.createElement("script"); el.src = "https://www.gstatic.com/firebasejs/" + FB_VER + "/firebase-" + name + "-compat.js"; el.onload = res; el.onerror = rej; document.head.appendChild(el); }); }
+  function fbLoad() {
+    if (FB.loading) return FB.loading;
+    FB.loading = (window.firebase && window.firebase.auth ? Promise.resolve() : fbScript("app").then(function () { return Promise.all([fbScript("auth"), fbScript("firestore")]); })).then(function () {
+      var fb = window.firebase; if (!fb.apps.length) fb.initializeApp(FB_CONFIG);
+      FB.auth = fb.auth(); FB.db = fb.firestore(); FB.ready = true;
+      FB.auth.onAuthStateChanged(function (u) { FB.user = u; acctPaint(); if (u) cloudPull(); else FB.pulled = false; });
+    });
+    return FB.loading;
+  }
+  function stateKey(x) { var c = Object.assign({}, x); delete c.updatedAt; return JSON.stringify(c); }
+  function dayScore(d) { return d ? ((d.cards || []).length * 100 + (d.mins || 0)) : -1; }
+  function mergeS(a, b) {
+    var newer = (b.updatedAt || 0) > (a.updatedAt || 0) ? b : a, older = newer === a ? b : a;
+    var m = JSON.parse(JSON.stringify(newer));
+    m.days = m.days || {};
+    Object.keys(older.days || {}).forEach(function (k) { if (dayScore(older.days[k]) > dayScore(m.days[k])) m.days[k] = older.days[k]; });
+    ["checkins", "frozen", "seenBadges"].forEach(function (f) { m[f] = m[f] || {}; Object.keys(older[f] || {}).forEach(function (k) { if (!(k in m[f])) m[f][k] = older[f][k]; }); });
+    if (older.lib && older.lib.done) { m.lib = m.lib || { done: {} }; m.lib.done = m.lib.done || {}; Object.keys(older.lib.done).forEach(function (k) { if (!(k in m.lib.done)) m.lib.done[k] = older.lib.done[k]; }); }
+    m.best = Math.max(a.best || 0, b.best || 0);
+    if (!m.answers && older.answers) m.answers = older.answers;
+    m.ageOk = !!(a.ageOk || b.ageOk);
+    return m;
+  }
+  function acctSync(t) { var el = $("acctSync"); if (el) el.textContent = t; }
+  function cloudRef() { return FB.db.collection("users").doc(FB.user.uid); }
+  function cloudPush(now) {
+    if (!FB || !FB.ready || !FB.user || !FB.pulled) return;
+    clearTimeout(FB.timer);
+    FB.timer = setTimeout(function () {
+      acctSync("Saving...");
+      cloudRef().set({ data: JSON.stringify(S), updated: window.firebase.firestore.FieldValue.serverTimestamp(), v: 1 }).then(function () { acctSync("Saved to your account. All good!"); }, function () { acctSync("Could not save right now. We will try again next time."); });
+    }, now ? 0 : 2500);
+  }
+  function cloudPull() {
+    acctSync("Syncing...");
+    cloudRef().get().then(function (doc) {
+      FB.pulled = true;
+      var cloud = null; try { cloud = doc.exists ? JSON.parse(doc.data().data) : null; } catch (e) {}
+      if (!cloud) { cloudPush(true); return; }
+      var merged = mergeS(S, cloud);
+      if (stateKey(merged) !== stateKey(S)) {
+        try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch (e) {}
+        if (stateKey(merged) !== stateKey(cloud)) { S = merged; cloudPush(true); setTimeout(function () { location.reload(); }, 900); }
+        else location.reload();
+      } else if (stateKey(merged) !== stateKey(cloud)) cloudPush(true);
+      else acctSync("Saved to your account. All good!");
+    }, function () { FB.pulled = false; acctSync("Could not reach your account. Check your internet."); });
+  }
+  function acctPaint() {
+    var on = !!FB.user;
+    $("acctOut").hidden = on || !CLOUD_OK; $("acctOn").hidden = !on; $("acctNo").hidden = CLOUD_OK;
+    $("acctHome").hidden = on || !CLOUD_OK;
+    if (on) $("acctWho").textContent = "Signed in as " + (FB.user.displayName || FB.user.email || "you");
+  }
+  function acctSignIn() {
+    toast("Opening Google sign-in...");
+    fbLoad().then(function () {
+      var pr = new window.firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: "select_account" });
+      return FB.auth.signInWithPopup(pr).then(function () { toast("Signed in! Your progress will follow you."); }, function (e) {
+        var c = e && e.code;
+        if (c === "auth/popup-blocked" || c === "auth/operation-not-supported-in-this-environment") return FB.auth.signInWithRedirect(pr);
+        if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
+        toast(c === "auth/unauthorized-domain" ? "Sign-in is not switched on for this website yet." : "Sign-in did not work. Try again.");
+      });
+    }, function () { toast("Could not load sign-in. Check your internet."); });
+  }
+  $("acctIn").addEventListener("click", acctSignIn);
+  $("acctHome").addEventListener("click", acctSignIn);
+  $("acctOff").addEventListener("click", function () { if (FB.auth) FB.auth.signOut().then(function () { toast("Signed out. Your progress stays on this device."); }); });
+  $("acctDel").addEventListener("click", function () { $("acctDelConfirm").hidden = false; });
+  $("acctDelNo").addEventListener("click", function () { $("acctDelConfirm").hidden = true; });
+  $("acctDelYes").addEventListener("click", function () {
+    if (!FB.user) return;
+    var u = FB.user;
+    function killUser() { return u.delete().catch(function (e) { if (e && e.code === "auth/requires-recent-login") return u.reauthenticateWithPopup(new window.firebase.auth.GoogleAuthProvider()).then(function () { return u.delete(); }); throw e; }); }
+    cloudRef().delete().then(killUser).then(function () { $("acctDelConfirm").hidden = true; toast("Account deleted. Your progress stays on this device only."); }, function () { toast("Could not delete right now. Try again."); });
+  });
+  acctPaint();
+  if (CLOUD_OK) fbLoad().catch(function () {});
 
   // ---------- Move progress to another device (2026-11-26) ----------
   var MOVE_TAG = "move=", MOVE_SITE = "https://yvonnechen16412-cmyk.github.io/glowup/", MOVE_PENDING = null;
