@@ -3077,7 +3077,7 @@ html.gated body { overflow: hidden; }
   var GATE_ON = false; // Switch to true after Yvonne confirms real Google sign-in works.
   function gatePaint() {
     var g = document.getElementById("gate"); if (!g || !FB) return;
-    var need = GATE_ON && CLOUD_OK && !!S.answers && !FB.user && (FB.known || FB.failed);
+    var need = !!(GATE_ON && CLOUD_OK && S.answers && !FB.user && (FB.known || FB.failed));
     g.hidden = !need;
     document.documentElement.classList.toggle("gated", need);
     $("gateErr").hidden = !FB.failed;
