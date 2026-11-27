@@ -974,6 +974,9 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
 .fc-panel > * { flex-shrink: 0; }
 .fc-panel .row2 { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
 .fc-panel .row2 .btn { flex: 1 1 140px; padding: 12px 14px; }
+.bday-row { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr; gap: 8px; }
+.bday-row select { font: inherit; padding: 10px 8px; border: 2px solid #B6FF00; border-radius: 12px; background: #fff; min-height: 44px; }
+.kid-list { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .move-modal.gate { background: rgba(243,255,224,.96); z-index: 90; }
 html.gated body { overflow: hidden; }
 .move-modal { position: fixed; inset: 0; background: rgba(11,18,32,.45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 16px; }
@@ -1150,9 +1153,22 @@ html.gated body { overflow: hidden; }
         <h1>Confidence is the <span class="hl">best look.</span></h1>
         <p class="lead">Tiny workouts. Real food. Streaks that keep you going, even on lazy days. Answer 8 quick questions and get your plan.</p>
         <div id="ageCard" class="card stack age-card">
-          <label class="check" for="ageOk"><input type="checkbox" id="ageOk"> <span>I am 13 or older.</span></label>
-          <p class="note" style="margin:0">Glow Up is for teens 13 and up. Tell a parent or guardian you are using it.</p>
-          <button class="btn block" id="startQuiz" disabled>Start my 2-minute quiz</button>
+          <div class="stack" id="bdayBox">
+            <b>When were you born?</b>
+            <div class="bday-row">
+              <select id="bdM" aria-label="Birth month"><option value="">Month</option></select>
+              <select id="bdD" aria-label="Birth day"><option value="">Day</option></select>
+              <select id="bdY" aria-label="Birth year"><option value="">Year</option></select>
+            </div>
+            <p class="note" style="margin:0">So your plan fits your age, and we can cheer on your birthday. It stays private.</p>
+            <button class="btn block" id="startQuiz" disabled>Start my 2-minute quiz</button>
+          </div>
+          <div class="stack" id="kidBox" hidden>
+            <h3 style="margin:0">Hey, thanks for stopping by! 👋</h3>
+            <p style="margin:0">Glow Up is made for teens 13 and up, so it's not ready for you yet. You can still have fun moving today:</p>
+            <ul class="kid-list"><li>🏃 Play tag or ball games outside</li><li>💃 Dance to your favorite song</li><li>🚲 Ride a bike with your family</li><li>🥕 Help cook a healthy snack with a grown-up</li></ul>
+            <p class="note" style="margin:0" id="kidWhen"></p>
+          </div>
           <button class="linkish" id="acctHome" type="button" hidden>Have an account? Sign in with Google</button>
           <button class="linkish" id="moveHome" type="button">Already use Glow Up on another device? Bring your progress</button>
         </div>
@@ -1935,7 +1951,7 @@ html.gated body { overflow: hidden; }
     if (qi < Q.length - 1) { qi++; renderQuiz(); window.scrollTo(0, 0); return; }
     var g = aGoals(draft), oldA = S.answers || {};
     S.answers = { goal: g[0], goals: g, level: draft.level, place: draft.place, places: (draft.places || []).slice(), mins: +draft.mins, fav: draft.fav || "",
-      age: draft.age || "", custom: (draft.custom || "").trim().slice(0, 120), customNote: draft.custom && draft.customRead ? draft.customNote || "" : "",
+      age: S.birth ? String(birthAge()) : (draft.age || ""), custom: (draft.custom || "").trim().slice(0, 120), customNote: draft.custom && draft.customRead ? draft.customNote || "" : "",
       customRead: draft.customRead || "", struggle: draft.struggle || "", time: draft.time || "" };
     S.answers.ageSetOn = oldA.age === S.answers.age && oldA.ageSetOn ? oldA.ageSetOn : todayKey(); // when they told us their age
     if (S.swaps) delete S.swaps[todayKey()]; // new answers = fresh plan today
@@ -2965,7 +2981,7 @@ html.gated body { overflow: hidden; }
   $("resetBtn").addEventListener("click", function () { $("resetConfirm").hidden = false; this.hidden = true; });
   $("resetNo").addEventListener("click", function () { $("resetConfirm").hidden = true; $("resetBtn").hidden = false; });
   $("resetYes").addEventListener("click", function () {
-    S = { answers: null, days: {}, likes: {}, best: 0, ageOk: S.ageOk, hacks: { saved: {}, tried: {} }, lib: { done: {}, last: "" }, freezes: 1, frozen: {}, seenBadges: {}, lazy: 0, checkins: {}, reward: { best: 0, months: 0, last: "" } }; save(); libSel = null;
+    S = { answers: null, days: {}, likes: {}, best: 0, ageOk: S.ageOk, birth: S.birth, hacks: { saved: {}, tried: {} }, lib: { done: {}, last: "" }, freezes: 1, frozen: {}, seenBadges: {}, lazy: 0, checkins: {}, reward: { best: 0, months: 0, last: "" } }; save(); libSel = null;
     $("resetConfirm").hidden = true; $("resetBtn").hidden = false; draft = {}; qi = 0; show("quiz");
   });
 
@@ -2997,6 +3013,7 @@ html.gated body { overflow: hidden; }
     m.best = Math.max(a.best || 0, b.best || 0);
     if (!m.answers && older.answers) m.answers = older.answers;
     m.ageOk = !!(a.ageOk || b.ageOk);
+    if (!m.birth && older.birth) m.birth = older.birth;
     return m;
   }
   function acctSync(t) { var el = $("acctSync"); if (el) el.textContent = t; }
@@ -3073,7 +3090,7 @@ html.gated body { overflow: hidden; }
   // We save only the age + the day they told us (ageSetOn). About a year later we ask once.
   function daysSince(k) { var d = new Date(k + "T00:00:00"); return isNaN(d) ? 0 : Math.floor((Date.now() - d.getTime()) / 864e5); }
   function ageCheck() {
-    var a = S.answers; if (!a || !a.age) return;
+    var a = S.answers; if (!a || !a.age || S.birth) return;
     if (!a.ageSetOn) { a.ageSetOn = todayKey(); save(); return; }
     if (+a.age >= 19 || daysSince(a.ageSetOn) < 365) return;
     var next = +a.age + 1, nextTxt = next >= 19 ? "19+" : String(next);
@@ -3242,8 +3259,59 @@ html.gated body { overflow: hidden; }
   });
 
   // ---------- welcome ----------
-  $("ageOk").addEventListener("change", function () { $("startQuiz").disabled = !this.checked; });
-  $("startQuiz").addEventListener("click", function () { S.ageOk = true; save(); draft = {}; qi = 0; show("quiz"); });
+  // ---------- Birthday age screen (2026-11-27, Yvonne: month + day + year, neutral, no 13+ hint) ----------
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var U13_KEY = "glowup.u13"; // stays on this device even after reset, so kids can't just pick another year
+  (function () {
+    var m = $("bdM"), d = $("bdD"), y = $("bdY"), now = new Date().getFullYear(), i;
+    MONTHS.forEach(function (n, k) { m.add(new Option(n, String(k + 1))); });
+    for (i = 1; i <= 31; i++) d.add(new Option(String(i), String(i)));
+    for (i = now - 5; i >= now - 40; i--) y.add(new Option(String(i), String(i)));
+  })();
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function bdayPick() {
+    var m = +$("bdM").value, d = +$("bdD").value, y = +$("bdY").value;
+    if (!m || !d || !y) return "";
+    var dt = new Date(y, m - 1, d); if (dt.getMonth() !== m - 1) return ""; // e.g. Feb 30
+    return y + "-" + pad2(m) + "-" + pad2(d);
+  }
+  function ageOn(birth, when) {
+    var b = String(birth).split("-").map(Number), w = when || new Date();
+    var a = w.getFullYear() - b[0]; if (w.getMonth() + 1 < b[1] || (w.getMonth() + 1 === b[1] && w.getDate() < b[2])) a--; return a;
+  }
+  function kidBlock() {
+    var until = ""; try { until = localStorage.getItem(U13_KEY) || ""; } catch (e) {}
+    if (!until || until <= todayKey()) return false;
+    var p = until.split("-").map(Number);
+    $("bdayBox").hidden = true; $("kidBox").hidden = false;
+    $("kidWhen").textContent = "Come back on " + MONTHS[p[1] - 1] + " " + p[2] + ", " + p[0] + ". We'll be here! 💚";
+    ["acctHome", "moveHome"].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    return true;
+  }
+  ["bdM", "bdD", "bdY"].forEach(function (id) { $(id).addEventListener("change", function () { $("startQuiz").disabled = !bdayPick(); }); });
+  $("startQuiz").addEventListener("click", function () {
+    var b = bdayPick(); if (!b) { toast("Pick your month, day and year."); return; }
+    var age = ageOn(b);
+    if (age < 13) {
+      var p = b.split("-"); try { localStorage.setItem(U13_KEY, (+p[0] + 13) + "-" + p[1] + "-" + p[2]); } catch (e) {}
+      kidBlock(); return; // we do not save a child's birthday
+    }
+    S.birth = b; S.ageOk = true; dropAgeQ(); save(); draft = { age: String(birthAge()) }; qi = 0; show("quiz");
+  });
+  function dropAgeQ() { if (S.birth) Q = Q.filter(function (q) { return q.id !== "age"; }); }
+  function birthAge() { return S.birth ? Math.min(ageOn(S.birth), 19) : 0; }
+  dropAgeQ(); kidBlock();
+  // On their birthday: cheer + the age (and plan) grows by itself.
+  (function () {
+    if (!S.birth || !S.answers) return;
+    var now = String(birthAge());
+    if (S.answers.age !== now) { S.answers.age = now; S.answers.ageSetOn = todayKey(); save(); }
+    var p = S.birth.split("-"), t = new Date();
+    if (+p[1] === t.getMonth() + 1 && +p[2] === t.getDate() && S.bdayCheer !== t.getFullYear()) {
+      S.bdayCheer = t.getFullYear(); save();
+      setTimeout(function () { toast("Happy birthday! 🎂 Your plan grew with you. Have an amazing day!"); }, 1200);
+    }
+  })();
 
   // ---------- nav ----------
   function show(v) {
@@ -3270,8 +3338,8 @@ html.gated body { overflow: hidden; }
   $("goToday").addEventListener("click", function () { show("today"); });
   $("goFood").addEventListener("click", function () { show("food"); });
   function cta(goal) {
-    if (!S.ageOk) { window.scrollTo({ top: 0, behavior: "smooth" }); $("ageOk").focus(); toast("Tick the 13+ box first"); return; }
-    if (!S.answers || goal) { draft = goal ? { goals: [goal] } : {}; qi = 0; show("quiz"); return; }
+    if (!S.ageOk) { window.scrollTo({ top: 0, behavior: "smooth" }); $("bdM").focus(); toast("Tell us your birthday first"); return; }
+    if (!S.answers || goal) { draft = goal ? { goals: [goal] } : {}; if (S.birth) draft.age = String(birthAge()); qi = 0; show("quiz"); return; }
     show("today");
   }
   $("vWelcome").addEventListener("click", function (e) {
