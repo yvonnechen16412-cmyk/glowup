@@ -602,7 +602,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
 .age-card { max-width: 460px; border-color: rgba(0,213,255,.5); box-shadow: var(--gc); }
 .hh-btns { display: flex; gap: 12px; flex-wrap: wrap; }
 .hh-art { position: relative; min-height: 300px; display: grid; place-items: center; }
-.orb { position: relative; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #fff 0 52%, rgba(182,255,0,.25) 53%, transparent 70%); display: grid; place-items: center; }
+.orb { position: relative; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #fff 0 52%, rgba(182,255,0,.25) 53%, transparent 70%); display: grid; place-items: center; }
 .orb-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--cy); box-shadow: 0 0 30px rgba(0,213,255,.55), inset 0 0 30px rgba(0,213,255,.25); }
 .orb-ring::after { content: ""; position: absolute; inset: 18px; border-radius: 50%; border: 2px dashed rgba(120,190,0,.7); animation: spin 22s linear infinite; }
 .orb-mid { display: flex; flex-direction: column; align-items: center; }
@@ -1137,7 +1137,7 @@ html.gated body { overflow: hidden; }
 .lib-head .wc-note, .cb-prev .wc-note { margin: 0; }
 
 /* Streak look v2 (2026-11-27, Yvonne: wanted a better fire + centered ring) */
-.flame { width: 22px; height: 22px; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22a%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23FF1F5A%22/%3E%3Cstop%20offset%3D%22.6%22%20stop-color%3D%22%23FF4D1F%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23FF7A00%22/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%22b%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23FF7A00%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23FFB800%22/%3E%3C/linearGradient%3E%3ClinearGradient%20id%3D%22c%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%220%22%20y2%3D%220%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23FFF6C8%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23FFE14D%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20fill%3D%22url%28%23a%29%22%20d%3D%22M12.2%20.8C13%204%2016.2%205.8%2017.6%209c.7-1.1.9-2.4.7-3.8%202.6%202.6%203.3%206.4%202.4%209.8-1.1%204.4-4.6%207.6-8.7%207.6-4.6%200-8.4-3.3-8.7-7.8-.2-3.1%201.4-5.7%203.3-7.4.1%201.6.7%202.9%201.8%203.7C8%207.2%209.6%203.4%2012.2.8z%22/%3E%3Cpath%20fill%3D%22url%28%23b%29%22%20d%3D%22M12.4%206.5c.6%202.7%203.2%204.3%204%207.1.8%203-1%206.8-4.4%207-3.2.2-5.4-2.2-5.2-5%20.1-1.8%201.1-3.1%202.2-4%20.1%201.2.6%202.1%201.4%202.6-.2-2.8.5-5.6%202-7.7z%22/%3E%3Cpath%20fill%3D%22url%28%23c%29%22%20d%3D%22M12.3%2012.2c.6%201.8%202.3%202.8%202.5%204.7.2%201.9-1.1%203.4-2.8%203.4s-2.9-1.2-2.8-2.7c.1-1.2.9-2%201.6-2.5.1.8.5%201.3%201%201.5-.2-1.5-.1-3%20.5-4.4z%22/%3E%3C/svg%3E") center / contain no-repeat !important; border: 0 !important; box-shadow: none !important; transform-origin: 50% 90%; filter: drop-shadow(0 1px 4px rgba(255,80,30,.5)); animation: flick 1.8s ease-in-out infinite; }
+.flame { width: 22px; height: 22px; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%202.2c2.4%202.9%207%206.4%207%2011.9%200%204.4-3.1%207.9-7%207.9s-7-3.1-7-7.2c0-3.2%201.8-5.2%203.2-6.4.4%201.8%201.2%202.8%202.2%203.2-.4-3.6.2-7%201.6-9.4z%22%20fill%3D%22%23FF9600%22%20stroke%3D%22%23FF9600%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M12.2%2011.2c1.4%202%203.8%203.5%203.8%206.1%200%202.2-1.8%203.8-4%203.8s-4-1.6-4-3.6c0-1.8%201.1-2.8%202-3.4.2%201%20.7%201.6%201.4%201.8-.3-1.8%200-3.3.8-4.7z%22%20fill%3D%22%23FFC800%22%20stroke%3D%22%23FFC800%22%20stroke-width%3D%221.2%22%20stroke-linejoin%3D%22round%22/%3E%3Cellipse%20cx%3D%229.2%22%20cy%3D%2212.6%22%20rx%3D%22.9%22%20ry%3D%221.6%22%20fill%3D%22%23FFD966%22%20opacity%3D%22.85%22%20transform%3D%22rotate%2820%209.2%2012.6%29%22/%3E%3C/svg%3E") center / contain no-repeat !important; border: 0 !important; box-shadow: none !important; transform-origin: 50% 90%; filter: drop-shadow(0 1px 3px rgba(255,150,0,.45)); animation: flick 1.8s ease-in-out infinite; }
 @keyframes flick { 0%, 100% { transform: scale(1) rotate(0deg); } 30% { transform: scale(1.05, .96) rotate(-3deg); } 60% { transform: scale(.97, 1.04) rotate(2deg); } }
 .cold .flame { animation: none; }
 @media (prefers-reduced-motion: reduce) { .flame { animation: none; } }
@@ -1150,6 +1150,9 @@ html.gated body { overflow: hidden; }
 .core-mid .flame { width: 20px; height: 20px; margin-bottom: -2px; }
 .streak-mini { background: linear-gradient(135deg, #FFF6D8, #FFE3F0); border: 2px solid #FF9F1C; border-radius: 999px; padding: 5px 14px 5px 8px; gap: 6px !important; box-shadow: 0 4px 14px rgba(255,122,26,.25); }
 .streak-mini.cold { background: #F4F6F8; border-color: #CBD5E1; box-shadow: none; }
+.orb-mid b { font-family: "Inter", "Space Grotesk", system-ui, sans-serif !important; font-weight: 900; font-variant-numeric: tabular-nums; }
+.orb-mid .flame { width: 34px; height: 34px; margin-bottom: 2px; }
+.orb-ring::after { transform-origin: 50% 50%; }
 </style>
 
 <header class="top wrap">
@@ -1208,7 +1211,7 @@ html.gated body { overflow: hidden; }
         </div>
       </div>
       <div class="hh-art" aria-hidden="true">
-        <div class="orb"><div class="orb-ring"></div><div class="orb-mid"><b id="homeStreak">0</b><small>day streak</small></div></div>
+        <div class="orb"><div class="orb-ring"></div><div class="orb-mid"><i class="flame" aria-hidden="true"></i><b id="homeStreak">0</b><small>day streak</small></div></div>
         <div class="float f1">5 min mission</div>
         <div class="float f2">Smart swap saved</div>
         <div class="float f3">Squad: 4 friends</div>
@@ -1728,7 +1731,7 @@ html.gated body { overflow: hidden; }
   var Q = [
     { id: "age", type: "age", q: "How old are you?", why: "So your moves fit your age. We never ask your weight or height.",
       opts: [["13", "13"], ["14", "14"], ["15", "15"], ["16", "16"], ["17", "17"], ["18", "18"], ["19", "19+"]] },
-    { id: "goals", type: "goals", q: "What do you want most?", why: "Pick up to 2. Your missions lean into them every day.", opts: [
+    { id: "goals", type: "goals", q: "What do you want most?", why: "Pick as many as you want, even all of them! Your missions mix them every day.", opts: [
       ["strength", "💪", "Get stronger", "This means push, squat and hold moves."],
       ["energy", "⚡", "More energy", "This means moves that wake your body up."],
       ["confidence", "✨", "Feel confident", "This means stand tall and feel good."],
@@ -1789,7 +1792,7 @@ html.gated body { overflow: hidden; }
     evening: "Evening: after dinner. Finish 1 hour before bed so you sleep well.",
     any: "Any free 5 minutes works. Try the same time most days."
   };
-  function aGoals(a) { var g = (a && a.goals && a.goals.length) ? a.goals : (a && a.goal ? [a.goal] : []); return g.filter(function (x) { return GOAL_TAG[x]; }).slice(0, 2); }
+  function aGoals(a) { var g = (a && a.goals && a.goals.length) ? a.goals : (a && a.goal ? [a.goal] : []); return g.filter(function (x) { return GOAL_TAG[x]; }); }
   function goalsLabel(a) { return aGoals(a).map(function (g) { return LABEL[g]; }).join(" + "); }
 
   // typed goal: AI first (artifact "sample" capability), keyword fallback
@@ -1940,7 +1943,7 @@ html.gated body { overflow: hidden; }
     var q = Q[qi], v = b.getAttribute("data-v");
     if (q.id === "goals") {
       var g = (draft.goals || []).slice(), at = g.indexOf(v);
-      if (at >= 0) g.splice(at, 1); else { g.push(v); if (g.length > 2) g.shift(); }
+      if (at >= 0) g.splice(at, 1); else { g.push(v); }
       draft.goals = g;
     } else if (q.id === "place") {
       var ps = (draft.places || []).slice();
