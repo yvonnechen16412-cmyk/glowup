@@ -1768,13 +1768,13 @@ html.gated body { overflow: hidden; }
       ["15", "⏱️", "15 min", "This means 3 missions a day."],
       ["20", "⏱️", "20 min", "This means 4 missions a day."],
       ["30", "🔥", "30 min", "This means 6 missions a day."]] },
-    { id: "fav", q: "What is your favorite way to move?", why: "We cheer it on. Log it and it counts for your streak.", opts: [
+    { id: "fav", q: "What are your favorite ways to move?", why: "Pick ALL that you like, 1 or all of them. Your plan mixes them in, and logging them counts for your streak.", opts: [
       ["dance", "💃", "Dance", "This means music on, just move."],
       ["running", "🏃", "Running", "This means fast feet and fresh air."],
       ["gymfav", "🏋️", "Gym", "This means weights and machines."],
       ["sports", "⚽", "Sports", "This means team games and ball."],
       ["yoga", "🧘", "Yoga", "This means stretch and breathe."]] },
-    { id: "struggle", q: "What is the hardest part for you?", why: "So we can help with the part that usually stops you.", opts: [
+    { id: "struggle", q: "What is the hardest part for you?", why: "Pick all that fit. We help with each one.", opts: [
       ["time", "⏰", "No time", "This means school and homework fill your day."],
       ["bored", "😴", "I get bored", "This means the same workout gets old fast."],
       ["lazy", "🛋️", "I feel lazy", "This means it is hard to get started."],
@@ -1812,6 +1812,8 @@ html.gated body { overflow: hidden; }
     any: "Any free 5 minutes works. Try the same time most days."
   };
   function aGoals(a) { var g = (a && a.goals && a.goals.length) ? a.goals : (a && a.goal ? [a.goal] : []); return g.filter(function (x) { return GOAL_TAG[x]; }); }
+  function favsOf(a) { return a && a.favs && a.favs.length ? a.favs : (a && a.fav ? [a.fav] : []); }
+  function strugglesOf(a) { return a && a.struggles && a.struggles.length ? a.struggles : (a && a.struggle ? [a.struggle] : []); }
   function goalsLabel(a) { return aGoals(a).map(function (g) { return LABEL[g]; }).join(" + "); }
 
   // typed goal: AI first (artifact "sample" capability), keyword fallback
@@ -1871,7 +1873,7 @@ html.gated body { overflow: hidden; }
   }
 
   var qi = 0, draft = {}, ready = false;
-  function answered(q) { return q.id === "goals" ? !!(draft.goals && draft.goals.length) : q.id === "place" ? !!(draft.places && draft.places.length) : !!draft[q.id]; }
+  function answered(q) { return q.id === "fav" ? favsOf(draft).length > 0 : q.id === "struggle" ? strugglesOf(draft).length > 0 : q.id === "goals" ? !!(draft.goals && draft.goals.length) : q.id === "place" ? !!(draft.places && draft.places.length) : !!draft[q.id]; }
   // Multi-place (2026-11-26): draft.places = some of bedroom/park/gym. place = the one place, or "mix" when 2+.
   var ALLP = ["bedroom", "park", "gym"];
   function placesOf(a) { if (!a) return []; if (a.places && a.places.length) return a.places.filter(function (p) { return MOVES[p]; }); if (a.place === "mix") return ALLP.slice(); return MOVES[a.place] ? [a.place] : []; }
@@ -1884,8 +1886,8 @@ html.gated body { overflow: hidden; }
     rows.push(["Where", a.place ? LABEL[a.place] + (a.place === "gym" ? (ageBand(a) === "young" ? ". Bodyweight moves and easy machines." : ". Light weights and easy machines.") : a.place === "mix" ? ". Tap where you are each day and your plan fits it." : ". No gear needed.") : ""]);
     if (a.place === "mix" && rows.length) rows[rows.length - 1][1] = placesLabel(a) + ". Tap where you are each day and your plan fits it.";
     rows.push(["Each day", n ? n + (n === 1 ? " mission" : " missions") + " of 5 minutes, plus a quick warm-up and cool-down" : ""]);
-    rows.push(["You love", a.fav ? LABEL[a.fav] + ". Log it and it counts too." : ""]);
-    rows.push(["Your fix", a.struggle ? STRUGGLE_FIX[a.struggle] : ""]);
+    rows.push(["You love", favsOf(a).length ? favsOf(a).map(function (f) { return LABEL[f]; }).join(" + ") + ". Log it and it counts too." : ""]);
+    rows.push(["Your fix", strugglesOf(a).length ? strugglesOf(a).map(function (k) { return STRUGGLE_FIX[k]; }).filter(Boolean).join(" ") : ""]);
     rows.push(["Best time", a.time ? TIME_TIP[a.time] : ""]);
     return rows;
   }
@@ -1917,8 +1919,8 @@ html.gated body { overflow: hidden; }
       ["Safety net", "You start with 1 Streak Saver. It protects your streak if you miss a day."]
     ];
     if (a.age) rows.splice(1, 0, ["Your age", AGE_PLAN[ageBand(a)]]);
-    if (a.fav) rows.splice(rows.length - 2, 0, ["You love", LABEL[a.fav] + ". Log it on the Workouts page and it counts too."]);
-    if (a.struggle) rows.push(["Your fix", STRUGGLE_FIX[a.struggle]]);
+    if (favsOf(a).length) rows.splice(rows.length - 2, 0, ["You love", favsOf(a).map(function (f) { return LABEL[f]; }).join(" + ") + ". Log it on the Workouts page and it counts too."]);
+    if (strugglesOf(a).length) rows.push(["Your fix", strugglesOf(a).map(function (k) { return STRUGGLE_FIX[k]; }).filter(Boolean).join(" ")]);
     if (a.time) rows.push(["Best time", TIME_TIP[a.time]]);
     $("qCard").innerHTML = '<div class="eyebrow">Your plan is ready</div><h2>Your <span class="hl">' + esc(goalsLabel(a)) + '</span> plan</h2>' +
       (a.age ? '<div class="q-built">' + esc(builtFor(a)) + '</div>' : '') +
@@ -1928,7 +1930,7 @@ html.gated body { overflow: hidden; }
     renderPreview();
   }
   function optHtml(q, o) {
-    var on = q.id === "goals" ? (draft.goals || []).indexOf(o[0]) >= 0 : q.id === "place" ? (o[0] === "mix" ? (draft.places || []).length === 3 : (draft.places || []).indexOf(o[0]) >= 0) : draft[q.id] === o[0];
+    var on = q.id === "fav" ? favsOf(draft).indexOf(o[0]) >= 0 : q.id === "struggle" ? strugglesOf(draft).indexOf(o[0]) >= 0 : q.id === "goals" ? (draft.goals || []).indexOf(o[0]) >= 0 : q.id === "place" ? (o[0] === "mix" ? (draft.places || []).length === 3 : (draft.places || []).indexOf(o[0]) >= 0) : draft[q.id] === o[0];
     if (q.type === "age") return '<button class="opt age-opt" data-v="' + o[0] + '" aria-pressed="' + on + '"><b>' + o[1] + '</b></button>';
     return '<button class="opt" data-v="' + o[0] + '" aria-pressed="' + on + '"><span class="opt-ico" aria-hidden="true">' + o[1] + '</span><b>' + o[2] + '</b><small>' + o[3] + '</small></button>';
   }
@@ -1971,6 +1973,10 @@ html.gated body { overflow: hidden; }
       else { var pi = ps.indexOf(v); if (pi >= 0) ps.splice(pi, 1); else ps.push(v); }
       ps = ALLP.filter(function (x) { return ps.indexOf(x) >= 0; });
       draft.places = ps; draft.place = ps.length === 1 ? ps[0] : ps.length ? "mix" : "";
+    } else if (q.id === "fav" || q.id === "struggle") {
+      var key = q.id === "fav" ? "favs" : "struggles", list = (q.id === "fav" ? favsOf(draft) : strugglesOf(draft)).slice(), li = list.indexOf(v);
+      if (li >= 0) list.splice(li, 1); else list.push(v);
+      draft[key] = list; draft[q.id] = list[0] || "";
     } else draft[q.id] = v;
     renderQuiz();
   });
@@ -1989,9 +1995,9 @@ html.gated body { overflow: hidden; }
     if (!answered(q)) return;
     if (qi < Q.length - 1) { qi++; renderQuiz(); window.scrollTo(0, 0); return; }
     var g = aGoals(draft), oldA = S.answers || {};
-    S.answers = { goal: g[0], goals: g, level: draft.level, place: draft.place, places: (draft.places || []).slice(), mins: +draft.mins, fav: draft.fav || "",
+    S.answers = { goal: g[0], goals: g, level: draft.level, place: draft.place, places: (draft.places || []).slice(), mins: +draft.mins, fav: favsOf(draft)[0] || "", favs: favsOf(draft).slice(), struggles: strugglesOf(draft).slice(),
       age: S.birth ? String(birthAge()) : (draft.age || ""), custom: (draft.custom || "").trim().slice(0, 120), customNote: draft.custom && draft.customRead ? draft.customNote || "" : "",
-      customRead: draft.customRead || "", struggle: draft.struggle || "", time: draft.time || "" };
+      customRead: draft.customRead || "", struggle: strugglesOf(draft)[0] || "", time: draft.time || "" };
     S.answers.ageSetOn = oldA.age === S.answers.age && oldA.ageSetOn ? oldA.ageSetOn : todayKey(); // when they told us their age
     if (S.swaps) delete S.swaps[todayKey()]; // new answers = fresh plan today
     save(); renderReady(); window.scrollTo(0, 0);
@@ -2167,12 +2173,12 @@ html.gated body { overflow: hidden; }
   function buildPlan() {
     var a = S.answers, place = placeFor(a), pool = MOVES[place], goals = aGoals(a), band = ageBand(a);
     if (!goals.length) goals = ["energy"];
-    var t = TIMING[a.level], r = rng(dayNum() + 7 + hashStr(goals.join(",") + "|" + (a.fav || "") + "|" + a.level + "|" + place));
+    var t = TIMING[a.level], r = rng(dayNum() + 7 + hashStr(goals.join(",") + "|" + favsOf(a).join(",") + "|" + a.level + "|" + place));
     // Quiz v2: ages 13-14 = bodyweight only (no dumbbells); 15-16 = very light weights with good form
     if (band === "young") pool = pool.filter(function (m) { return !AGE_NO_YOUNG[m[0]]; });
     // Favorite way to move = a gentle nudge (2026-11-26, Yvonne: not forced into every mission). Fav moves that fit the place join the
     // "goal match" group, so they show up more often, and the plan changes whenever the user changes their favorite.
-    var favNames = (FAV_MOVES[a.fav] || []).filter(function (nm) { return okAt(nm, place) && !(band === "young" && AGE_NO_YOUNG[nm]); });
+    var favNames = favsOf(a).reduce(function (acc, f) { return acc.concat((FAV_MOVES[f] || []).filter(function (nm) { return acc.indexOf(nm) < 0; })); }, []).filter(function (nm) { return okAt(nm, place) && !(band === "young" && AGE_NO_YOUNG[nm]); });
     pool = pool.slice();
     if (+a.mins >= 15) Object.keys(ANYWHERE).forEach(function (nm) { if (!pool.some(function (m) { return m[0] === nm; })) { var am = findMove(nm); if (am && BODY[nm] !== "") pool.push(am); } }); // more variety for long plans
     favNames.forEach(function (nm) { if (!pool.some(function (m) { return m[0] === nm; })) { var fmv = findMove(nm); if (fmv) pool.push(fmv); } });
@@ -2201,7 +2207,7 @@ html.gated body { overflow: hidden; }
     dance: "Dance", running: "Running", gymfav: "Gym", sports: "Sports", yoga: "Yoga",
     time: "No time", bored: "Gets bored", lazy: "Feels lazy", how: "Learning how",
     morning: "Morning", afternoon: "After school", evening: "Evening", any: "Any time" };
-  function tagsHtml() { var a = S.answers; return (a.age ? [builtFor(a)] : []).concat(aGoals(a).map(function (g) { return LABEL[g]; }), [LABEL[a.level], a.place === "mix" ? placesLabel(a) + " (today: " + LABEL[placeFor(a)] + ")" : LABEL[a.place], a.mins + " min a day"]).concat(a.fav ? ["Loves " + LABEL[a.fav]] : []).map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join(""); }
+  function tagsHtml() { var a = S.answers; return (a.age ? [builtFor(a)] : []).concat(aGoals(a).map(function (g) { return LABEL[g]; }), [LABEL[a.level], a.place === "mix" ? placesLabel(a) + " (today: " + LABEL[placeFor(a)] + ")" : LABEL[a.place], a.mins + " min a day"]).concat(favsOf(a).length ? ["Loves " + favsOf(a).map(function (f) { return LABEL[f]; }).join(" + ")] : []).map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join(""); }
 
   var plan = [];
   // Where am I today (2026-11-26): "All of them" in the quiz, or a one-day switch for anyone. Does not change the quiz answers.
@@ -3016,7 +3022,7 @@ html.gated body { overflow: hidden; }
     $("sSaved").textContent = Object.keys(S.hacks.saved).length;
     renderWeek(); renderHeat(); renderBadges(); renderGlow(); renderForm();
   }
-  $("redoQuiz").addEventListener("click", function () { draft = Object.assign({}, S.answers, { mins: String(S.answers.mins), goals: aGoals(S.answers), places: placesOf(S.answers) }); ["fav", "age", "struggle", "time"].forEach(function (k) { if (!draft[k]) delete draft[k]; }); qi = 0; show("quiz"); });
+  $("redoQuiz").addEventListener("click", function () { draft = Object.assign({}, S.answers, { mins: String(S.answers.mins), goals: aGoals(S.answers), places: placesOf(S.answers), favs: favsOf(S.answers).slice(), struggles: strugglesOf(S.answers).slice() }); ["fav", "age", "struggle", "time"].forEach(function (k) { if (!draft[k]) delete draft[k]; }); qi = 0; show("quiz"); });
   $("resetBtn").addEventListener("click", function () { $("resetConfirm").hidden = false; this.hidden = true; });
   $("resetNo").addEventListener("click", function () { $("resetConfirm").hidden = true; $("resetBtn").hidden = false; });
   $("resetYes").addEventListener("click", function () {
