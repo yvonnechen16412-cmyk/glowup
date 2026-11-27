@@ -1160,6 +1160,10 @@ html.gated body { overflow: hidden; }
 .save-plan { margin-top: 14px; padding: 14px 16px; border: 2px solid #B6FF00; border-radius: 16px; background: #F3FFE0; display: flex; flex-direction: column; gap: 8px; }
 .save-plan span { color: var(--muted); font-size: .92rem; }
 .save-plan.on { font-weight: 800; }
+.gate .move-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+.gate-or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .85rem; }
+.gate-or::before, .gate-or::after { content: ""; flex: 1; height: 1px; background: #CBD5E1; }
+#gateMail, #gatePass { resize: none; min-height: 44px; }
 </style>
 
 <header class="top wrap">
@@ -1665,7 +1669,16 @@ html.gated body { overflow: hidden; }
   <h3 id="gateTitle">Sign in to save your plan</h3>
   <p class="note" style="margin:0">Your account keeps your plan, streak and badges safe, and they follow you to your phone and laptop. We only save your Glow Up progress. Never your weight, height or photos.</p>
   <button class="btn" id="gateIn" type="button">Sign in with Google</button>
+  <div class="gate-or"><span>or use your email</span></div>
+  <div class="stack" id="gateMailBox" style="gap:8px">
+    <input class="move-ta" id="gateMail" type="email" autocomplete="email" placeholder="Your email" aria-label="Your email">
+    <input class="move-ta" id="gatePass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" aria-label="Password">
+    <div class="qnav"><button class="btn ghost" id="gateMailIn" type="button">Sign in</button><button class="btn ghost" id="gateMailNew" type="button">Create account</button></div>
+    <button class="linkish" id="gateForgot" type="button">Forgot password?</button>
+  </div>
+  <p class="note" id="gateMsg" style="margin:0;color:#B0145F" hidden></p>
   <p class="note" id="gateErr" style="margin:0;color:#B0145F" hidden>Could not reach sign-in. Check your internet, then tap the button again.</p>
+  <button class="linkish" id="gateSkip" type="button">I don't have an email</button>
   <p class="note" style="margin:0">Glow Up is for teens 13+. Tell a parent or guardian you are using it. <a href="https://yvonnechen16412-cmyk.github.io/glowup/privacy.html" target="_blank" rel="noopener">Privacy</a></p>
   <button class="linkish" id="gateRedo" type="button" hidden>Redo my quiz</button>
 </div></div>
@@ -3129,15 +3142,34 @@ html.gated body { overflow: hidden; }
   });
   acctPaint();
   // Sign-in gate (Yvonne chose option B, 2026-11-27): quiz first, then an account is needed to use the app.
-  var GATE_ON = false; // Switch to true after Yvonne confirms real Google sign-in works.
+  var GATE_ON = true; // Yvonne 2026-11-27: people must sign in (so they can pay later). "I don't have an email" lets them in for 7 days, then asks again.
   function gatePaint() {
     var g = document.getElementById("gate"); if (!g || !FB) return;
-    var need = !!(GATE_ON && CLOUD_OK && S.answers && !FB.user && (FB.known || FB.failed));
+    var skipped = S.skipAcct && daysSince(S.skipAcct) < 7;
+    var need = !!(GATE_ON && CLOUD_OK && S.answers && !FB.user && (FB.known || FB.failed) && !skipped);
     g.hidden = !need;
     document.documentElement.classList.toggle("gated", need);
     $("gateErr").hidden = !FB.failed;
   }
   $("gateIn").addEventListener("click", function () { if (FB.failed) { FB.failed = false; FB.loading = null; gatePaint(); fbLoad().then(acctSignIn, function () { FB.failed = true; gatePaint(); }); } else acctSignIn(); });
+
+  function gateMsg(t) { var m = $("gateMsg"); m.textContent = t || ""; m.hidden = !t; }
+  function gateMailVals() { var e = $("gateMail").value.trim(), p = $("gatePass").value; if (!/^\S+@\S+\.\S+$/.test(e)) { gateMsg("Type your email, like name@gmail.com"); return null; } return [e, p]; }
+  var MAIL_ERR = { "auth/wrong-password": "That password is not right. Try again or tap Forgot password.", "auth/invalid-credential": "Email or password is not right. Try again, or tap Create account if you are new.", "auth/user-not-found": "No account with that email yet. Tap Create account.", "auth/email-already-in-use": "You already have an account. Tap Sign in.", "auth/weak-password": "Use at least 6 characters for your password.", "auth/invalid-email": "That email does not look right.", "auth/operation-not-allowed": "Email sign-in is not switched on yet. Use Google for now.", "auth/too-many-requests": "Too many tries. Wait a minute and try again.", "auth/network-request-failed": "No internet. Check your connection." };
+  function mailDo(create) {
+    var v = gateMailVals(); if (!v) return;
+    if (create && v[1].length < 6) { gateMsg(MAIL_ERR["auth/weak-password"]); return; }
+    gateMsg("");
+    fbLoad().then(function () { return create ? FB.auth.createUserWithEmailAndPassword(v[0], v[1]) : FB.auth.signInWithEmailAndPassword(v[0], v[1]); })
+      .then(function () { toast(create ? "Account made! Your plan is saved." : "Signed in! Welcome back."); }, function (e) { gateMsg(MAIL_ERR[e && e.code] || "That did not work. Try again."); });
+  }
+  $("gateMailIn").addEventListener("click", function () { mailDo(false); });
+  $("gateMailNew").addEventListener("click", function () { mailDo(true); });
+  $("gateForgot").addEventListener("click", function () {
+    var e = $("gateMail").value.trim(); if (!/^\S+@\S+\.\S+$/.test(e)) { gateMsg("Type your email first, then tap Forgot password."); return; }
+    fbLoad().then(function () { return FB.auth.sendPasswordResetEmail(e); }).then(function () { gateMsg("Check your email for a link to make a new password."); }, function (er) { gateMsg(MAIL_ERR[er && er.code] || "Could not send the email. Try again."); });
+  });
+  $("gateSkip").addEventListener("click", function () { S.skipAcct = todayKey(); save(); toast("No problem! You can sign in anytime on Progress."); });
   $("gateRedo").addEventListener("click", function () { $("redoQuiz") && $("redoQuiz").click(); });
   if (CLOUD_OK) fbLoad().catch(function () { FB.failed = true; gatePaint(); });
 
