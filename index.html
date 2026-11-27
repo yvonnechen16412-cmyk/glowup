@@ -1241,12 +1241,13 @@ html.gated body { overflow: hidden; }
         <div class="eyebrow">Try it</div>
         <h2>How much can you do in 30 days?</h2>
         <label for="calcMins" class="note" style="margin:0">Minutes a day: <b id="calcMinsOut">10</b></label>
-        <input type="range" id="calcMins" min="5" max="30" step="5" value="10">
+        <input type="range" id="calcMins" min="0" max="4" step="1" value="1" aria-valuetext="10 minutes">
+        <p class="note" style="margin:0" id="calcNote">Plus PE, sports and walks, aim for 60 minutes of moving a day.</p>
         <button class="btn" data-cta>Start my plan</button>
       </div>
       <div class="calc-r">
         <div><b id="calcTotal">300</b><small>minutes moved</small></div>
-        <div><b>30</b><small>missions done</small></div>
+        <div><b id="calcMissions">60</b><small>missions done</small></div>
         <div><b>30</b><small>day streak</small></div>
       </div>
     </div>
@@ -1761,7 +1762,7 @@ html.gated body { overflow: hidden; }
       ["park", "🌳", "Park", "This means a bench and open space."],
       ["gym", "🏋️", "Gym", "This means a school or local gym."],
       ["mix", "🔄", "All of them", "This means bedroom, park and gym. Tap where you are each day."]] },
-    { id: "mins", q: "How many minutes a day?", why: "Tiny is how you stick with it. Each mission is 5 minutes.", opts: [
+    { id: "mins", q: "How many minutes a day?", why: "Each mission is 5 minutes. Pick what you can really do. PE, sports and walks also count toward 60 minutes a day.", opts: [
       ["5", "⏱️", "5 min", "This means 1 mission a day."],
       ["10", "⏱️", "10 min", "This means 2 missions a day."],
       ["15", "⏱️", "15 min", "This means 3 missions a day."],
@@ -1882,7 +1883,7 @@ html.gated body { overflow: hidden; }
     rows.push(["Pace", t ? t[0] + " sec on, " + t[1] + " sec rest" : ""]);
     rows.push(["Where", a.place ? LABEL[a.place] + (a.place === "gym" ? (ageBand(a) === "young" ? ". Bodyweight moves and easy machines." : ". Light weights and easy machines.") : a.place === "mix" ? ". Tap where you are each day and your plan fits it." : ". No gear needed.") : ""]);
     if (a.place === "mix" && rows.length) rows[rows.length - 1][1] = placesLabel(a) + ". Tap where you are each day and your plan fits it.";
-    rows.push(["Each day", n ? n + (n === 1 ? " mission" : " missions") + " of 5 minutes" : ""]);
+    rows.push(["Each day", n ? n + (n === 1 ? " mission" : " missions") + " of 5 minutes, plus a quick warm-up and cool-down" : ""]);
     rows.push(["You love", a.fav ? LABEL[a.fav] + ". Log it and it counts too." : ""]);
     rows.push(["Your fix", a.struggle ? STRUGGLE_FIX[a.struggle] : ""]);
     rows.push(["Best time", a.time ? TIME_TIP[a.time] : ""]);
@@ -1909,7 +1910,8 @@ html.gated body { overflow: hidden; }
     var rows = [
       ["Your goal", goalsLabel(a) + (a.customNote && a.custom ? ". " + a.customNote : "")],
       ["Where", LABEL[a.place] + (a.place === "gym" ? (ageBand(a) === "young" ? ". Bodyweight moves and easy machines." : ". Light weights and easy machines.") : a.place === "mix" ? ". Tap where you are each day and your plan fits it." : ". No gear needed.")].map(function (x, k) { return k === 1 && a.place === "mix" ? placesLabel(a) + ". Tap where you are each day and your plan fits it." : x; }),
-      ["Each day", p.length + (p.length === 1 ? " mission" : " missions") + " of 5 minutes. " + t[0] + " sec on, " + t[1] + " sec rest."],
+      ["Each day", p.length + (p.length === 1 ? " mission" : " missions") + " of 5 minutes, plus a quick warm-up and cool-down. " + t[0] + " sec on, " + t[1] + " sec rest."],
+      ["Move goal", "60 minutes of moving a day in total. Your missions, PE, sports and walks all count."],
       ["This week", "Up to " + (a.mins * 7) + " minutes if you go every day. Missing a day is okay."],
       ["First move", p[0].moves[0].name + ". " + p[0].moves[0].tip],
       ["Safety net", "You start with 1 Streak Saver. It protects your streak if you miss a day."]
@@ -3393,7 +3395,15 @@ html.gated body { overflow: hidden; }
     if (g) cta(g.getAttribute("data-goal")); else if (c) cta();
   });
   $("wlJump").addEventListener("click", function (e) { e.preventDefault(); var w = $("waitlist"); if (w) w.scrollIntoView({ behavior: "smooth", block: "center" }); });
-  $("calcMins").addEventListener("input", function () { $("calcMinsOut").textContent = this.value; $("calcTotal").textContent = this.value * 30; });
+  // 30-day calculator (2026-11-27): same choices as the quiz (5, 10, 15, 20, 30 min = 1, 2, 3, 4, 6 missions a day)
+  var CALC_MINS = [5, 10, 15, 20, 30];
+  function calcPaint() {
+    var m = CALC_MINS[+$("calcMins").value] || 10;
+    $("calcMinsOut").textContent = m; $("calcMins").setAttribute("aria-valuetext", m + " minutes");
+    $("calcTotal").textContent = (m * 30).toLocaleString("en-US"); $("calcMissions").textContent = m / 5 * 30;
+    $("calcNote").textContent = m * 30 >= 600 ? "That's " + (m * 30 / 60) + " hours of moving! Add PE, sports and walks to hit 60 minutes a day." : "Plus PE, sports and walks, aim for 60 minutes of moving a day.";
+  }
+  $("calcMins").addEventListener("input", calcPaint); calcPaint();
   document.querySelector(".pillars").addEventListener("click", function (e) { var b = e.target.closest("[data-go]"); if (b) show(b.getAttribute("data-go")); });
   $("tabMe").addEventListener("click", function () { show("me"); });
   $("tabFood").addEventListener("click", function () { show("food"); });
