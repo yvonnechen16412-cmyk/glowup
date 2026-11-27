@@ -3284,7 +3284,7 @@ html.gated body { overflow: hidden; }
     if (!until || until <= todayKey()) return false;
     var p = until.split("-").map(Number);
     $("bdayBox").hidden = true; $("kidBox").hidden = false;
-    $("kidWhen").textContent = "Come back on " + MONTHS[p[1] - 1] + " " + p[2] + ", " + p[0] + ". We'll be here! 💚";
+    $("kidWhen").textContent = "Come back on your 13th birthday, " + MONTHS[p[1] - 1] + " " + p[2] + ", " + p[0] + ". We'll be here to celebrate with you! 🎂💚";
     ["acctHome", "moveHome"].forEach(function (id) { if ($(id)) $(id).hidden = true; });
     return true;
   }
