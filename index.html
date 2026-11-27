@@ -1670,6 +1670,7 @@ html.gated body { overflow: hidden; }
   S.likes = S.likes || {};
   S.best = S.best || 0;
   S.ageOk = !!S.ageOk;
+  if (S.ageOk && !S.birth && !S.answers) S.ageOk = false; // ticked the old 13+ box but never finished the quiz: show the new birthday screen
   S.hacks = S.hacks || { saved: {}, tried: {} }; // Night 2: Menu Hacks
   S.lib = S.lib || { done: {}, last: "" }; // Night 3: workout library
   S.lib.done = S.lib.done || {};
