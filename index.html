@@ -974,6 +974,8 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
 .fc-panel > * { flex-shrink: 0; }
 .fc-panel .row2 { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
 .fc-panel .row2 .btn { flex: 1 1 140px; padding: 12px 14px; }
+.move-modal.gate { background: rgba(243,255,224,.96); z-index: 90; }
+html.gated body { overflow: hidden; }
 .move-modal { position: fixed; inset: 0; background: rgba(11,18,32,.45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 16px; }
 .move-card { max-width: 440px; width: 100%; background: #fff; }
 .move-ta { width: 100%; box-sizing: border-box; border: 2px solid #B6FF00; border-radius: 12px; padding: 10px; font: inherit; font-size: .85rem; resize: vertical; word-break: break-all; }
@@ -1611,6 +1613,22 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
   </div>
 </div>
 
+<div class="move-modal gate" id="gate" hidden><div class="card stack move-card" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="eyebrow">Your plan is ready</div>
+  <h3 id="gateTitle">Sign in to save your plan</h3>
+  <p class="note" style="margin:0">Your account keeps your plan, streak and badges safe, and they follow you to your phone and laptop. We only save your Glow Up progress. Never your weight, height or photos.</p>
+  <button class="btn" id="gateIn" type="button">Sign in with Google</button>
+  <p class="note" id="gateErr" style="margin:0;color:#B0145F" hidden>Could not reach sign-in. Check your internet, then tap the button again.</p>
+  <p class="note" style="margin:0">Glow Up is for teens 13+. Tell a parent or guardian you are using it. <a href="https://yvonnechen16412-cmyk.github.io/glowup/privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+  <button class="linkish" id="gateRedo" type="button" hidden>Redo my quiz</button>
+</div></div>
+<div class="move-modal" id="ageUp" hidden><div class="card stack move-card" role="dialog" aria-modal="true" aria-labelledby="ageUpTitle">
+  <div class="eyebrow">Birthday check 🎂</div>
+  <h3 id="ageUpTitle">Did you have a birthday?</h3>
+  <p class="note" id="ageUpText" style="margin:0"></p>
+  <button class="btn" id="ageUpYes" type="button">Yes!</button>
+  <button class="btn ghost" id="ageUpNo" type="button">Not yet</button>
+</div></div>
 <div class="move-modal" id="moveBox" hidden><div class="card stack move-card" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
   <div class="eyebrow">Bring your progress</div>
   <h3 id="moveTitle">Move your Glow Up to this device</h3>
@@ -1629,7 +1647,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
   "use strict";
   var KEY = "glowup.v1";
   function load() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-  function save() { S.updatedAt = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} cloudPush(); }
+  function save() { S.updatedAt = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} cloudPush(); gatePaint(); }
   var S = load() || {};
   S.answers = S.answers || null;
   S.days = S.days || {};        // "YYYY-MM-DD": { cards: [ids], mins: n, feel: "" }
@@ -1915,10 +1933,11 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     }
     if (!answered(q)) return;
     if (qi < Q.length - 1) { qi++; renderQuiz(); window.scrollTo(0, 0); return; }
-    var g = aGoals(draft);
+    var g = aGoals(draft), oldA = S.answers || {};
     S.answers = { goal: g[0], goals: g, level: draft.level, place: draft.place, places: (draft.places || []).slice(), mins: +draft.mins, fav: draft.fav || "",
       age: draft.age || "", custom: (draft.custom || "").trim().slice(0, 120), customNote: draft.custom && draft.customRead ? draft.customNote || "" : "",
       customRead: draft.customRead || "", struggle: draft.struggle || "", time: draft.time || "" };
+    S.answers.ageSetOn = oldA.age === S.answers.age && oldA.ageSetOn ? oldA.ageSetOn : todayKey(); // when they told us their age
     if (S.swaps) delete S.swaps[todayKey()]; // new answers = fresh plan today
     save(); renderReady(); window.scrollTo(0, 0);
     toast("Plan updated!" + (placesOf(S.answers).length > 1 ? " On Workouts, tap where you are today." : ""));
@@ -2962,7 +2981,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     FB.loading = (window.firebase && window.firebase.auth ? Promise.resolve() : fbScript("app").then(function () { return Promise.all([fbScript("auth"), fbScript("firestore")]); })).then(function () {
       var fb = window.firebase; if (!fb.apps.length) fb.initializeApp(FB_CONFIG);
       FB.auth = fb.auth(); FB.db = fb.firestore(); FB.ready = true;
-      FB.auth.onAuthStateChanged(function (u) { FB.user = u; acctPaint(); if (u) cloudPull(); else FB.pulled = false; });
+      FB.auth.onAuthStateChanged(function (u) { FB.user = u; FB.known = true; acctPaint(); if (u) cloudPull(); else FB.pulled = false; });
     });
     return FB.loading;
   }
@@ -3006,6 +3025,7 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     }, function () { FB.pulled = false; acctSync("Could not reach your account. Check your internet."); });
   }
   function acctPaint() {
+    gatePaint();
     var on = !!FB.user;
     $("acctOut").hidden = on || !CLOUD_OK; $("acctOn").hidden = !on; $("acctNo").hidden = CLOUD_OK;
     $("acctHome").hidden = on || !CLOUD_OK;
@@ -3035,7 +3055,44 @@ nav.tabs button[aria-current="page"] { background: var(--li); color: var(--text)
     cloudRef().delete().then(killUser).then(function () { $("acctDelConfirm").hidden = true; toast("Account deleted. Your progress stays on this device only."); }, function () { toast("Could not delete right now. Try again."); });
   });
   acctPaint();
-  if (CLOUD_OK) fbLoad().catch(function () {});
+  // Sign-in gate (Yvonne chose option B, 2026-11-27): quiz first, then an account is needed to use the app.
+  var GATE_ON = false; // Switch to true after Yvonne confirms real Google sign-in works.
+  function gatePaint() {
+    var g = document.getElementById("gate"); if (!g || !FB) return;
+    var need = GATE_ON && CLOUD_OK && !!S.answers && !FB.user && (FB.known || FB.failed);
+    g.hidden = !need;
+    document.documentElement.classList.toggle("gated", need);
+    $("gateErr").hidden = !FB.failed;
+  }
+  $("gateIn").addEventListener("click", function () { if (FB.failed) { FB.failed = false; FB.loading = null; gatePaint(); fbLoad().then(acctSignIn, function () { FB.failed = true; gatePaint(); }); } else acctSignIn(); });
+  $("gateRedo").addEventListener("click", function () { $("redoQuiz") && $("redoQuiz").click(); });
+  if (CLOUD_OK) fbLoad().catch(function () { FB.failed = true; gatePaint(); });
+
+
+  // ---------- Birthday check (2026-11-27): ages grow, no birthday data saved ----------
+  // We save only the age + the day they told us (ageSetOn). About a year later we ask once.
+  function daysSince(k) { var d = new Date(k + "T00:00:00"); return isNaN(d) ? 0 : Math.floor((Date.now() - d.getTime()) / 864e5); }
+  function ageCheck() {
+    var a = S.answers; if (!a || !a.age) return;
+    if (!a.ageSetOn) { a.ageSetOn = todayKey(); save(); return; }
+    if (+a.age >= 19 || daysSince(a.ageSetOn) < 365) return;
+    var next = +a.age + 1, nextTxt = next >= 19 ? "19+" : String(next);
+    var bandUp = ageBand({ age: String(next) }) !== ageBand(a);
+    $("ageUpText").textContent = "You told us you were " + ageText(a) + " about a year ago. Are you " + nextTxt + " now?" + (bandUp ? " Your plan will grow with you and unlock new moves." : " Your plan will grow with you.");
+    $("ageUpYes").textContent = "Yes, I'm " + nextTxt + "!";
+    $("ageUp").hidden = false;
+  }
+  $("ageUpYes").addEventListener("click", function () {
+    var a = S.answers; a.age = String(Math.min(+a.age + 1, 19)); a.ageSetOn = todayKey();
+    if (S.swaps) delete S.swaps[todayKey()];
+    save(); $("ageUp").hidden = true; toast("Happy birthday! 🎂 Your plan grew with you.");
+    setTimeout(function () { location.reload(); }, 1200);
+  });
+  $("ageUpNo").addEventListener("click", function () {
+    var d = new Date(); d.setDate(d.getDate() - 335); // ask again in about a month
+    S.answers.ageSetOn = d.toISOString().slice(0, 10); save(); $("ageUp").hidden = true;
+  });
+  setTimeout(ageCheck, 1500);
 
   // ---------- Move progress to another device (2026-11-26) ----------
   var MOVE_TAG = "move=", MOVE_SITE = "https://yvonnechen16412-cmyk.github.io/glowup/", MOVE_PENDING = null;
