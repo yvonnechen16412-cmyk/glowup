@@ -3161,7 +3161,10 @@ html.gated body { overflow: hidden; }
     if (create && v[1].length < 6) { gateMsg(MAIL_ERR["auth/weak-password"]); return; }
     gateMsg("");
     fbLoad().then(function () { return create ? FB.auth.createUserWithEmailAndPassword(v[0], v[1]) : FB.auth.signInWithEmailAndPassword(v[0], v[1]); })
-      .then(function () { toast(create ? "Account made! Your plan is saved." : "Signed in! Welcome back."); }, function (e) { gateMsg(MAIL_ERR[e && e.code] || "That did not work. Try again."); });
+      .then(function (cred) {
+        toast(create ? "Account made! Check your email to confirm it. 📧" : "Signed in! Welcome back.");
+        if (create && cred && cred.user && cred.user.sendEmailVerification) cred.user.sendEmailVerification().catch(function () {});
+      }, function (e) { gateMsg(MAIL_ERR[e && e.code] || "That did not work. Try again."); });
   }
   $("gateMailIn").addEventListener("click", function () { mailDo(false); });
   $("gateMailNew").addEventListener("click", function () { mailDo(true); });
