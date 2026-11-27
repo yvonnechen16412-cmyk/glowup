@@ -1157,6 +1157,9 @@ html.gated body { overflow: hidden; }
 .mg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .mg-top span { font-weight: 800; font-variant-numeric: tabular-nums; }
 #mgBar { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #B6FF00, #00D5FF); transition: width .6s; }
+.save-plan { margin-top: 14px; padding: 14px 16px; border: 2px solid #B6FF00; border-radius: 16px; background: #F3FFE0; display: flex; flex-direction: column; gap: 8px; }
+.save-plan span { color: var(--muted); font-size: .92rem; }
+.save-plan.on { font-weight: 800; }
 </style>
 
 <header class="top wrap">
@@ -1925,9 +1928,15 @@ html.gated body { overflow: hidden; }
     $("qCard").innerHTML = '<div class="eyebrow">Your plan is ready</div><h2>Your <span class="hl">' + esc(goalsLabel(a)) + '</span> plan</h2>' +
       (a.age ? '<div class="q-built">' + esc(builtFor(a)) + '</div>' : '') +
       '<div class="note">Built from your answers. You can change them anytime.</div>' +
-      '<ul class="ready-list">' + rows.map(function (r) { return '<li><span>' + r[0] + '</span><div>' + esc(r[1]) + '</div></li>'; }).join("") + '</ul>';
+      '<ul class="ready-list">' + rows.map(function (r) { return '<li><span>' + r[0] + '</span><div>' + esc(r[1]) + '</div></li>'; }).join("") + '</ul>' + readySaveHtml();
     $("qNext").disabled = false; $("qNext").textContent = "Start my first workout"; $("qBack").textContent = "Change answers";
     renderPreview();
+  }
+  // Save your plan (2026-11-27): sign-in invite on the Ready screen (only on our website, where accounts work)
+  function readySaveHtml() {
+    if (!CLOUD_OK) return "";
+    if (FB && FB.user) return '<div class="save-plan on">✅ Saved to your account (' + esc(FB.user.displayName || FB.user.email || "you") + ')</div>';
+    return '<div class="save-plan"><b>💾 Save your plan to your account</b><span>Sign in so your plan, streak and badges follow you to your phone and laptop.</span><button class="btn" id="readyIn" type="button">Sign in with Google</button></div>';
   }
   function optHtml(q, o) {
     var on = q.id === "fav" ? favsOf(draft).indexOf(o[0]) >= 0 : q.id === "struggle" ? strugglesOf(draft).indexOf(o[0]) >= 0 : q.id === "goals" ? (draft.goals || []).indexOf(o[0]) >= 0 : q.id === "place" ? (o[0] === "mix" ? (draft.places || []).length === 3 : (draft.places || []).indexOf(o[0]) >= 0) : draft[q.id] === o[0];
@@ -1961,6 +1970,7 @@ html.gated body { overflow: hidden; }
   }
   $("qCard").addEventListener("click", function (e) {
     if (e.target.closest("#qRead")) { readGoal(); return; }
+    if (e.target.closest("#readyIn")) { acctSignIn(); return; }
     var b = e.target.closest(".opt"); if (!b || ready) return;
     var q = Q[qi], v = b.getAttribute("data-v");
     if (q.id === "goals") {
@@ -3088,6 +3098,7 @@ html.gated body { overflow: hidden; }
   }
   function acctPaint() {
     gatePaint();
+    if (ready && document.querySelector(".save-plan")) renderReady();
     var on = !!FB.user;
     $("acctOut").hidden = on || !CLOUD_OK; $("acctOn").hidden = !on; $("acctNo").hidden = CLOUD_OK;
     $("acctHome").hidden = on || !CLOUD_OK;
