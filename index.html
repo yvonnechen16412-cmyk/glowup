@@ -3001,6 +3001,7 @@ nav.tabs .in { grid-template-columns: repeat(5, 1fr); }
     return { h: [(a.h[0] + b.h[0]) / 2, (a.h[1] + b.h[1]) / 2], p: out };
   }
   function frameSvg(f, cls) {
+    if (FIG_V3) return '<g class="' + cls + '">' + framesSvg([parsePose(f)], 0, {}) + '</g>'; // same model (feet) for two-pose figures
     return '<g class="' + cls + '">' + f.p.map(function (pt) { return '<polyline points="' + pt + '"/>'; }).join("") + '<circle cx="' + f.h[0] + '" cy="' + f.h[1] + '" r="7"/></g>';
   }
   // Smooth figures (2026-11-25): when both poses have matching points, ONE figure glides between them with SVG <animate>
@@ -3034,9 +3035,61 @@ nav.tabs .in { grid-template-columns: repeat(5, 1fr); }
   // FIGURE v3 (2026-11-28 night 3:37): far arm/leg drawn BEHIND the body in a lighter solid shade (both limbs always show),
   // round hands and feet, and a small eye that shows which way the face points (side views). FIG_V3 = false goes back to v2.
   var FIG_V3 = true;
+  // SAME MODEL FOR EVERY FIGURE (2026-11-28, Yvonne): every leg gets a foot, drawn the same way, and no eyes.
+  // Legs = polylines 1 and 2 (hip, knee, ankle, [toe]). A short old toe point is dropped and the foot is rebuilt:
+  // front views: feet point outward; side views: the foot is square to the shin, on the side the knee bends toward
+  // (that side is the front of the body); straight legs: lying/plank = toes down to the floor, standing = forward (+x).
+  var FOOT = 5.2;
+  function withFeet(frames, side) {
+    var legs = [1, 2], fr0 = frames[0];
+    if (!side && fr0.p[1] && fr0.p[2] && fr0.p[1].length >= 3 && fr0.p[2].length >= 3) {
+      // no far-limb style: decide front vs side from the shape (front view = ankles on both sides of the hips)
+      var cx = (fr0.p[1][0][0] + fr0.p[2][0][0]) / 2, a1 = fr0.p[1][2][0] - cx, a2 = fr0.p[2][2][0] - cx;
+      side = !(a1 * a2 < -4);
+    }
+    var info = legs.map(function (i) {
+      var pl = fr0.p[i]; if (!pl || pl.length < 3) return null;
+      var sum = 0, horiz = 0;
+      frames.forEach(function (fr) {
+        var q = fr.p[i]; if (!q || q.length < 3) return;
+        var hip = q[0], knee = q[1], ank = q[2], vx = ank[0] - hip[0], vy = ank[1] - hip[1], wx = knee[0] - hip[0], wy = knee[1] - hip[1];
+        var L = Math.hypot(vx, vy) || 1; sum += (vx * wy - vy * wx) / L; horiz += Math.abs(vx) > Math.abs(vy) ? 1 : -1;
+      });
+      return { bend: sum / frames.length, horiz: horiz > 0 };
+    });
+    return frames.map(function (fr) {
+      var p = fr.p.map(function (pl) { return pl.map(function (q) { return q.slice(); }); });
+      legs.forEach(function (i, k) {
+        var I = info[k], q = p[i]; if (!I || !q || q.length < 3) return;
+        if (q.length > 3) { var last = q[q.length - 1], prev = q[q.length - 2]; if (Math.hypot(last[0] - prev[0], last[1] - prev[1]) < 9) q.pop(); }
+        if (q.length < 3) return;
+        var hip = q[0], knee = q[q.length - 2], ank = q[q.length - 1], dx, dy;
+        if (!side) { var out = ank[0] - hip[0]; if (Math.abs(out) < 0.5) out = i === 1 ? -1 : 1; dx = out > 0 ? 1 : -1; dy = 0.15; }
+        else {
+          var sx = ank[0] - knee[0], sy = ank[1] - knee[1], sl = Math.hypot(sx, sy) || 1; sx /= sl; sy /= sl;
+          var c1 = [-sy, sx], c2 = [sy, -sx], pick;
+          if (Math.abs(I.bend) > 1.2) {
+            var vx = ank[0] - hip[0], vy = ank[1] - hip[1], F = I.bend > 0 ? [-vy, vx] : [vy, -vx];
+            pick = (c1[0] * F[0] + c1[1] * F[1]) >= 0 ? c1 : c2;
+          } else if (I.horiz) pick = c1[1] >= 0 ? c1 : c2;   // plank / lying: toes to the floor
+          else pick = c1[0] >= 0 ? c1 : c2;                   // standing straight: forward
+          dx = pick[0]; dy = pick[1];
+        }
+        if (side && I.horiz && Math.abs(I.bend) <= 1.2 && ank[1] > 85) {
+          // plank / push-up on the toes: the leg end IS the toes, so draw the foot going up to the heel
+          var away = ank[0] >= hip[0] ? 1 : -1; q.push([ank[0] + away * 2.2, ank[1] - 4.6]); return;
+        }
+        var dl = Math.hypot(dx, dy) || 1, tx = ank[0] + dx / dl * FOOT, ty = Math.min(ank[1] + dy / dl * FOOT, 90.5);
+        q.push([tx, ty]);
+      });
+      return { h: fr.h, p: p };
+    });
+  }
   function framesSvg(frames, dur, sty) {
     if (!FIG_V3) return framesSvgV2(frames, dur, sty);
     sty = sty || {};
+    var side0 = false; for (var si = 0; si < frames[0].p.length; si++) { var mo0 = /opacity:\s*(0?\.\d+)/.exec(sty[si] || ""); if (mo0 && +mo0[1] <= 0.5) side0 = true; }
+    frames = withFeet(frames, side0);
     var f2 = function (n) { return n.toFixed(1); }, ptsStr = function (pl) { return pl.map(function (q) { return f2(q[0]) + "," + f2(q[1]); }).join(" "); };
     var still = !dur, kt = frames.length > 1 ? frames.map(function (_, i) { return (i / (frames.length - 1)).toFixed(4); }).join(";") : "0";
     var anim = function (attr, vals) { return still ? "" : '<animate attributeName="' + attr + '" values="' + vals.join(";") + '" keyTimes="' + kt + '" dur="' + dur + 's" calcMode="linear" repeatCount="indefinite"/>'; };
@@ -3046,7 +3099,7 @@ nav.tabs .in { grid-template-columns: repeat(5, 1fr); }
     for (i = 0; i < n; i++) if (far[i]) order.push(i);
     for (i = 0; i < n; i++) if (!far[i]) order.push(i);
     var dot = function (i) {
-      if (i < 1 || i > 4 || !a.p[i] || a.p[i].length < 2 || /opacity:\s*0(;|$)/.test(sty[i] || "")) return "";
+      if (i < 3 || i > 4 || !a.p[i] || a.p[i].length < 2 || /opacity:\s*0(;|$)/.test(sty[i] || "")) return "";
       var last = function (fr) { return fr.p[i][fr.p[i].length - 1]; };
       return '<circle class="dot' + (far[i] ? " far" : "") + '" cx="' + f2(last(a)[0]) + '" cy="' + f2(last(a)[1]) + '" r="3.1">' + anim("cx", frames.map(function (fr) { return f2(last(fr)[0]); })) + anim("cy", frames.map(function (fr) { return f2(last(fr)[1]); })) + '</circle>';
     };
@@ -3055,8 +3108,8 @@ nav.tabs .in { grid-template-columns: repeat(5, 1fr); }
       return '<polyline' + (far[i] ? ' class="far"' : '') + ' points="' + ptsStr(a.p[i]) + '"' + (st ? ' style="' + st + '"' : '') + '>' + anim("points", frames.map(function (fr) { return ptsStr(fr.p[i]); })) + '</polyline>' + dot(i);
     }).join("");
     out += '<circle cx="' + f2(a.h[0]) + '" cy="' + f2(a.h[1]) + '" r="7">' + anim("cx", frames.map(function (fr) { return f2(fr.h[0]); })) + anim("cy", frames.map(function (fr) { return f2(fr.h[1]); })) + '</circle>';
-    if (side) {
-      // eye: on the face side of the head. Torso polyline starts at the neck; "up" = neck minus the next point; face = up turned 90 degrees forward.
+    if (false) {
+      // eye (removed 2026-11-28, Yvonne did not like it): on the face side of the head. Torso polyline starts at the neck; "up" = neck minus the next point; face = up turned 90 degrees forward.
       var eye = function (fr) { var t = fr.p[0].slice(), n = t.length, h = fr.h; if (Math.hypot(t[n - 1][0] - h[0], t[n - 1][1] - h[1]) < Math.hypot(t[0][0] - h[0], t[0][1] - h[1])) t.reverse(); var ux = t[0][0] - t[1][0], uy = t[0][1] - t[1][1], L = Math.hypot(ux, uy) || 1; ux /= L; uy /= L; return [fr.h[0] - uy * 3.3 + ux * 1.2, fr.h[1] + ux * 3.3 + uy * 1.2]; };
       var e0 = eye(a);
       out += '<circle class="eye" cx="' + f2(e0[0]) + '" cy="' + f2(e0[1]) + '" r="1.5">' + anim("cx", frames.map(function (fr) { return f2(eye(fr)[0]); })) + anim("cy", frames.map(function (fr) { return f2(eye(fr)[1]); })) + '</circle>';
