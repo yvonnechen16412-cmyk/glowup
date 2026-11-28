@@ -3459,17 +3459,24 @@ nav.tabs .in { grid-template-columns: repeat(5, 1fr); }
     $("acctHome").hidden = on || !CLOUD_OK;
     if (on) $("acctWho").textContent = "Signed in as " + (FB.user.displayName || FB.user.email || "you");
   }
+  // Google sign-in (fixed 2026-11-28): open the popup RIGHT INSIDE the tap (phones block late popups).
+  // No redirect fallback: redirect breaks on iPhone/Safari because our site and firebaseapp.com are different domains.
   function acctSignIn() {
-    toast("Opening Google sign-in...");
-    fbLoad().then(function () {
+    function fail(e) {
+      var c = e && e.code;
+      if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
+      if (c === "auth/popup-blocked") { toast("Your browser blocked the Google window. Tap Sign in with Google again, or use your email."); return; }
+      if (c === "auth/operation-not-supported-in-this-environment" || c === "auth/web-storage-unsupported") { toast("Google sign-in doesn't work in this browser. Use your email, or open the site in Safari or Chrome."); return; }
+      if (c === "auth/network-request-failed") { toast("No internet. Check your connection."); return; }
+      toast(c === "auth/unauthorized-domain" ? "Sign-in is not switched on for this website yet." : "Sign-in did not work. Try again, or use your email.");
+    }
+    function go() {
       var pr = new window.firebase.auth.GoogleAuthProvider(); pr.setCustomParameters({ prompt: "select_account" });
-      return FB.auth.signInWithPopup(pr).then(function () { toast("Signed in! Your progress will follow you."); }, function (e) {
-        var c = e && e.code;
-        if (c === "auth/popup-blocked" || c === "auth/operation-not-supported-in-this-environment") return FB.auth.signInWithRedirect(pr);
-        if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
-        toast(c === "auth/unauthorized-domain" ? "Sign-in is not switched on for this website yet." : "Sign-in did not work. Try again.");
-      });
-    }, function () { toast("Could not load sign-in. Check your internet."); });
+      return FB.auth.signInWithPopup(pr).then(function () { toast("Signed in! Your progress will follow you."); }, fail);
+    }
+    if (FB.ready) { go(); return; } // same tap = popup allowed
+    toast("Getting Google sign-in ready...");
+    fbLoad().then(go, function () { toast("Could not load sign-in. Check your internet."); });
   }
   $("acctIn").addEventListener("click", acctSignIn);
   $("acctHome").addEventListener("click", acctSignIn);
